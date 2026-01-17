@@ -1,0 +1,19 @@
+meta {
+  name: Get plant by id
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{HOST}}/api/v1/plants/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 
+}
+
+settings {
+  encodeUrl: true
+}
