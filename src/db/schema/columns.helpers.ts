@@ -1,11 +1,10 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { sql } from "drizzle-orm/sql";
-import { text } from "drizzle-orm/sqlite-core/columns/text";
 import { v4 as uuidv4 } from "@lukeed/uuid";
+import { text } from "drizzle-orm/sqlite-core/columns/text";
 
 const now = () => Temporal.Now.instant().toString();
 
-const timestampDefaultNow = (columnName: string) => text(columnName).default(now());
+const timestampDefaultNow = (columnName: string) => text(columnName).$defaultFn(() => now());
 
 export const timestamps = {
   updated_at: timestampDefaultNow('updated_at').notNull().$onUpdateFn(() => now()),
@@ -13,6 +12,6 @@ export const timestamps = {
   deleted_at: text('deleted_at'),
 }
 
-export const uuid = (columnName: string) => text(columnName).default(uuidv4())
+export const uuid = (columnName: string) => text(columnName).$defaultFn(() => uuidv4())
 
 
