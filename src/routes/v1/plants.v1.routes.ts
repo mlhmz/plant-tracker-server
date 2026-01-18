@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm/sql";
 import { Hono } from "hono";
-import { ErrorCodes } from "../common/error";
-import { handleError, handleGenericError } from "../common/error-handler";
-import type { Variables } from "../common/workers";
+import { ErrorCodes } from "../../common/error";
+import { handleError, handleGenericError } from "../../common/error-handler";
+import type { Variables } from "../../common/workers";
 import {
     type InsertPlant,
     insertPlantSchema,
     plants,
     type UpdatePlant,
     updatePlantSchema,
-} from "../db/schema/plant";
+} from "../../db/schema/plant";
 
 const plantsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -18,7 +18,7 @@ plantsRouter.get("/", async (c) => {
 		const result = await c.var.db.select().from(plants);
 		return c.json(result);
 	} catch (error) {
-        handleGenericError(c, error);
+        return handleGenericError(c, error);
 	}
 });
 
@@ -35,7 +35,7 @@ plantsRouter.get("/:id", async (c) => {
 		}
 		return c.json(result[0]);
 	} catch (error) {
-        handleGenericError(c, error);
+        return handleGenericError(c, error);
 	}
 });
 
@@ -65,7 +65,7 @@ plantsRouter.post("/", async (c) => {
 
 		return c.json(result, 201);
 	} catch (error) {
-        handleGenericError(c, error);
+        return handleGenericError(c, error);
 	}
 });
 
@@ -98,7 +98,7 @@ plantsRouter.put("/:id", async (c) => {
 
 		return c.json(result[0]);
 	} catch (error) {
-		handleGenericError(c, error);
+		return handleGenericError(c, error);
 	}
 });
 
@@ -126,7 +126,7 @@ plantsRouter.delete("/:id", async (c) => {
 		}
 		return c.status(204);
 	} catch (error) {
-        handleGenericError(c, error);
+        return handleGenericError(c, error);
 	}
 });
 

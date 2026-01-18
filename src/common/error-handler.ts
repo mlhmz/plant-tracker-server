@@ -1,14 +1,14 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { ZodError } from "zod";
+import z from "zod";
 import {
 	type ErrorBody,
 	ErrorCodes
 } from "./error";
 
 export const handleGenericError = (c: Context, error: unknown) => {
-	if (error instanceof ZodError) {
-		handleError(c, {
+	if (error instanceof z.ZodError) {
+		return handleError(c, {
 				errorCode: ErrorCodes.INPUT_VALIDATION_FAILED,
 				validationErrors: error.issues,
 			}, 400, error)
