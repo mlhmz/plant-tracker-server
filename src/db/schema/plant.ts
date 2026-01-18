@@ -1,6 +1,10 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { createInsertSchema, createUpdateSchema } from "drizzle-zod";
-import type z from "zod";
+import {
+	createInsertSchema,
+	createSelectSchema,
+	createUpdateSchema,
+} from "drizzle-zod";
+import { z } from "zod";
 import { timestamps, uuid } from "./columns.helpers";
 
 const plants = sqliteTable("plants", {
@@ -16,6 +20,8 @@ const plants = sqliteTable("plants", {
 });
 
 type QueryPlant = typeof plants.$inferSelect;
+
+const selectPlantSchema = createSelectSchema(plants);
 
 const insertPlantSchema = createInsertSchema(plants).pick({
 	name: true,
@@ -40,11 +46,18 @@ const updatePlantSchema = createUpdateSchema(plants).pick({
 type InsertPlant = z.infer<typeof insertPlantSchema>;
 type UpdatePlant = z.infer<typeof updatePlantSchema>;
 
+const plantResponseSchema = selectPlantSchema.omit({ deleted_at: true });
+
+const plantsArrayResponseSchema = z.array(plantResponseSchema);
+
 export {
 	plants,
 	type QueryPlant,
 	type InsertPlant,
 	type UpdatePlant,
+	selectPlantSchema,
 	insertPlantSchema,
 	updatePlantSchema,
+	plantResponseSchema,
+	plantsArrayResponseSchema,
 };

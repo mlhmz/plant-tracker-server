@@ -1,55 +1,184 @@
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm/sql";
-import { Hono } from "hono";
-import { ErrorCodes } from "../../common/error";
-import { handleError, handleGenericError } from "../../common/error-handler";
+import { ErrorCodes, errorResponseSchema, logError } from "../../common/error";
+import { validationHook } from "../../common/validation-hook";
 import type { Variables } from "../../common/workers";
 import {
-    type InsertPlant,
-    insertPlantSchema,
-    plants,
-    type UpdatePlant,
-    updatePlantSchema,
+	insertPlantSchema,
+	plantResponseSchema,
+	plants,
+	plantsArrayResponseSchema,
+	updatePlantSchema,
 } from "../../db/schema/plant";
 
-const plantsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
+const plantsRouter = new OpenAPIHono<{ Bindings: Env; Variables: Variables }>({
+	defaultHook: validationHook,
+});
 
-plantsRouter.get("/", async (c) => {
+const getAllPlantsRoute = createRoute({
+	method: "get",
+	path: "/",
+	tags: ["Plants"],
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: plantsArrayResponseSchema,
+				},
+			},
+			description: "List of all plants",
+		},
+		400: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Validation error",
+		},
+		500: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Internal server error",
+		},
+	},
+});
+
+plantsRouter.openapi(getAllPlantsRoute, async (c) => {
 	try {
 		const result = await c.var.db.select().from(plants);
-		return c.json(result);
+		return c.json(result, 200);
 	} catch (error) {
-        return handleGenericError(c, error);
+		logError(c, ErrorCodes.INTERNAL_SERVER_ERROR, 500, error);
+		return c.json({ errorCode: ErrorCodes.INTERNAL_SERVER_ERROR }, 500);
 	}
 });
 
-plantsRouter.get("/:id", async (c) => {
+const getPlantByIdRoute = createRoute({
+	method: "get",
+	path: "/{id}",
+	tags: ["Plants"],
+	request: {
+		params: z.object({
+			id: z.string().openapi({
+				param: {
+					name: "id",
+					in: "path",
+				},
+				example: "550e8400-e29b-41d4-a716-446655440000",
+			}),
+		}),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: plantResponseSchema,
+				},
+			},
+			description: "Plant details",
+		},
+		400: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Validation error",
+		},
+		404: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Plant not found",
+		},
+		500: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Internal server error",
+		},
+	},
+});
+
+plantsRouter.openapi(getPlantByIdRoute, async (c) => {
 	try {
-		const { id } = c.req.param();
+		const { id } = c.req.valid("param");
 		const result = await c.var.db
 			.select()
 			.from(plants)
 			.where(eq(plants.id, id))
 			.limit(1);
 		if (result.length === 0) {
-			return handleError(c, { errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
+			return c.json({ errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
 		}
-		return c.json(result[0]);
+		return c.json(result[0], 200);
 	} catch (error) {
-        return handleGenericError(c, error);
+		logError(c, ErrorCodes.INTERNAL_SERVER_ERROR, 500, error);
+		return c.json({ errorCode: ErrorCodes.INTERNAL_SERVER_ERROR }, 500);
 	}
 });
 
-plantsRouter.post("/", async (c) => {
-	try {
-		const plant = await c.req.json<InsertPlant>();
+const createPlantRoute = createRoute({
+	method: "post",
+	path: "/",
+	tags: ["Plants"],
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: insertPlantSchema,
+				},
+			},
+		},
+	},
+	responses: {
+		201: {
+			content: {
+				"application/json": {
+					schema: plantResponseSchema,
+				},
+			},
+			description: "Plant created successfully",
+		},
+		400: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Bad request - validation error",
+		},
+		500: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Internal server error",
+		},
+	},
+});
 
-		insertPlantSchema.parse(plant);
+plantsRouter.openapi(
+	createPlantRoute,
+	async (c) => {
+	try {
+		const plant = c.req.valid("json");
 
 		const results = await c.var.db.insert(plants).values(plant).returning();
 
 		if (results.length === 0) {
-			return handleError(c, { errorCode: ErrorCodes.PLANT_COULDNT_BE_CREATED }, 500);
-		}
+		logError(c, ErrorCodes.PLANT_COULDNT_BE_CREATED, 500);
+		return c.json({ errorCode: ErrorCodes.PLANT_COULDNT_BE_CREATED }, 500);
+	}
 
 		const result = results[0];
 
@@ -65,16 +194,74 @@ plantsRouter.post("/", async (c) => {
 
 		return c.json(result, 201);
 	} catch (error) {
-        return handleGenericError(c, error);
+		logError(c, ErrorCodes.INTERNAL_SERVER_ERROR, 500, error);
+		return c.json({ errorCode: ErrorCodes.INTERNAL_SERVER_ERROR }, 500);
 	}
 });
 
-plantsRouter.put("/:id", async (c) => {
-	try {
-		const { id } = c.req.param();
-		const plant = await c.req.json<UpdatePlant>();
+const updatePlantRoute = createRoute({
+	method: "put",
+	path: "/{id}",
+	tags: ["Plants"],
+	request: {
+		params: z.object({
+			id: z.string().openapi({
+				param: {
+					name: "id",
+					in: "path",
+				},
+				example: "550e8400-e29b-41d4-a716-446655440000",
+			}),
+		}),
+		body: {
+			content: {
+				"application/json": {
+					schema: updatePlantSchema,
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: plantResponseSchema,
+				},
+			},
+			description: "Plant updated successfully",
+		},
+		400: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Bad request - validation error",
+		},
+		404: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Plant not found",
+		},
+		500: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Internal server error",
+		},
+	},
+});
 
-		updatePlantSchema.parse(plant);
+
+plantsRouter.openapi(updatePlantRoute, async (c) => {
+	try {
+		const { id } = c.req.valid("param");
+		const plant = c.req.valid("json");
 
 		const result = await c.var.db
 			.update(plants)
@@ -83,8 +270,9 @@ plantsRouter.put("/:id", async (c) => {
 			.returning();
 
 		if (result.length === 0) {
-			return handleError(c, { errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
-		}
+		logError(c, ErrorCodes.PLANT_NOT_FOUND, 404);
+		return c.json({ errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
+	}
 
 		console.log(
 			JSON.stringify({
@@ -96,15 +284,54 @@ plantsRouter.put("/:id", async (c) => {
 			}),
 		);
 
-		return c.json(result[0]);
-	} catch (error) {
-		return handleGenericError(c, error);
-	}
+		return c.json(result[0], 200);
+} catch (error) {
+	logError(c, ErrorCodes.INTERNAL_SERVER_ERROR, 500, error);
+	return c.json({ errorCode: ErrorCodes.INTERNAL_SERVER_ERROR }, 500);
+}
 });
 
-plantsRouter.delete("/:id", async (c) => {
+const deletePlantRoute = createRoute({
+	method: "delete",
+	path: "/{id}",
+	tags: ["Plants"],
+	request: {
+		params: z.object({
+			id: z.string().openapi({
+				param: {
+					name: "id",
+					in: "path",
+				},
+				example: "550e8400-e29b-41d4-a716-446655440000",
+			}),
+		}),
+	},
+	responses: {
+		204: {
+			description: "Plant deleted successfully",
+		},
+		404: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Plant not found",
+		},
+		500: {
+			content: {
+				"application/json": {
+					schema: errorResponseSchema,
+				},
+			},
+			description: "Internal server error",
+		},
+	},
+});
+
+plantsRouter.openapi(deletePlantRoute, async (c) => {
 	try {
-		const { id } = c.req.param();
+		const { id } = c.req.valid("param");
 
 		const result = await c.var.db
 			.delete(plants)
@@ -122,11 +349,13 @@ plantsRouter.delete("/:id", async (c) => {
 		);
 
 		if (result.length === 0) {
-			return handleError(c, { errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
+			logError(c, ErrorCodes.PLANT_NOT_FOUND, 404);
+			return c.json({ errorCode: ErrorCodes.PLANT_NOT_FOUND }, 404);
 		}
-		return c.status(204);
+		return c.body(null, 204);
 	} catch (error) {
-        return handleGenericError(c, error);
+		logError(c, ErrorCodes.INTERNAL_SERVER_ERROR, 500, error);
+		return c.json({ errorCode: ErrorCodes.INTERNAL_SERVER_ERROR }, 500);
 	}
 });
 

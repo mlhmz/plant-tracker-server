@@ -1,12 +1,23 @@
+import type { Context } from "hono";
+import z from "zod";
 import type { $ZodIssue } from "zod/v4/core";
 
-export type ErrorCode = {
-	code: string;
-	message: string;
-};
+const errorCodeSchema = z.object({
+	code: z.string(),
+	message: z.string(),
+});
 
-export type ErrorBody = {
-	errorCode: ErrorCode;
+export const errorResponseSchema = z.object({
+	errorCode: z.object({
+		code: z.string(),
+		message: z.string(),
+	}),
+	validationErrors: z.array(z.any()).optional(),
+});
+
+export type ErrorCode = z.infer<typeof errorCodeSchema>;
+
+export type ErrorResponse = z.infer<typeof errorResponseSchema> & {
 	validationErrors?: $ZodIssue[];
 };
 
@@ -34,3 +45,26 @@ export type ErrorCodeKey = keyof typeof ErrorCodes;
 export function getErrorCode(key: ErrorCodeKey): ErrorCode {
 	return ErrorCodes[key];
 }
+
+export const logError = (
+	c: Context,
+	errorCode: ErrorCode,
+	statusCode: number,
+	error?: unknown,
+) => {
+	const errorLog: Record<string, unknown> = {
+		event: "error",
+		message: errorCode.message,
+		code: errorCode.code,
+		statusCode,
+		path: c.req.path,
+		method: c.req.method,
+		timestamp: new Date().toISOString(),
+	};
+
+	if (error) {
+		errorLog.error = error instanceof Error ? error.message : String(error);
+	}
+
+	console.error(JSON.stringify(errorLog));
+};
