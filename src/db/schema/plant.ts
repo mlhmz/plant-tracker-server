@@ -1,18 +1,50 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { createInsertSchema, createUpdateSchema } from "drizzle-zod";
+import type z from "zod";
 import { timestamps, uuid } from "./columns.helpers";
 
-export const plants = sqliteTable("plants", {
-    id: uuid("id").primaryKey(),
-    name: text("name").notNull(),
-    species: text("species").notNull(),
-    lastWatered: text("last_watered").notNull(),
-    wateringInterval: integer("watering_interval").notNull(), // in days
-    lastFertilized: text("last_fertilized").notNull(),
-    fertilizingInterval: integer("fertilizing_interval").notNull(), // in days
-    notes: text("notes"),
-    ...timestamps,
+const plants = sqliteTable("plants", {
+	id: uuid("id").primaryKey(),
+	name: text("name").notNull(),
+	species: text("species"),
+	lastWatered: text("last_watered"),
+	wateringInterval: integer("watering_interval").notNull(),
+	lastFertilized: text("last_fertilized"),
+	fertilizingInterval: integer("fertilizing_interval").notNull(),
+	notes: text("notes"),
+	...timestamps,
 });
 
 type QueryPlant = typeof plants.$inferSelect;
-type MutatePlant = Omit<typeof plants.$inferInsert, "deleted_at" | "created_at" | "updated_at" | "id">;
-export { QueryPlant, MutatePlant };
+
+const insertPlantSchema = createInsertSchema(plants).pick({
+	name: true,
+	species: true,
+	lastWatered: true,
+	wateringInterval: true,
+	lastFertilized: true,
+	fertilizingInterval: true,
+	notes: true,
+});
+
+const updatePlantSchema = createUpdateSchema(plants).pick({
+	name: true,
+	species: true,
+	lastWatered: true,
+	wateringInterval: true,
+	lastFertilized: true,
+	fertilizingInterval: true,
+	notes: true,
+});
+
+type InsertPlant = z.infer<typeof insertPlantSchema>;
+type UpdatePlant = z.infer<typeof updatePlantSchema>;
+
+export {
+	plants,
+	type QueryPlant,
+	type InsertPlant,
+	type UpdatePlant,
+	insertPlantSchema,
+	updatePlantSchema,
+};

@@ -1,16 +1,39 @@
-import { Context } from 'hono';
-import { ErrorCode } from './error-codes';
-import { ContentfulStatusCode } from 'hono/utils/http-status';
+import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { ZodError } from "zod";
+import {
+	type ErrorBody,
+	ErrorCodes
+} from "./error";
 
-export const handleError = (c: Context, errorCode: ErrorCode, statusCode: ContentfulStatusCode, error?: unknown) => {
-  console.error(JSON.stringify({
-    event: 'error',
-    message: errorCode.message,
-    errorCode,
-    statusCode,
-    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
-    timestamp: new Date().toISOString(),
-  }));
+export const handleGenericError = (c: Context, error: unknown) => {
+	if (error instanceof ZodError) {
+		handleError(c, {
+				errorCode: ErrorCodes.INPUT_VALIDATION_FAILED,
+				validationErrors: error.issues,
+			}, 400, error)
+	} else {
+		return handleError(c, {
+			errorCode: ErrorCodes.INTERNAL_SERVER_ERROR,
+		}, 500);
+	}
+};
 
-  return c.json(errorCode, statusCode);
+export const handleError = (
+	c: Context,
+	errorBody: ErrorBody,
+	statusCode: ContentfulStatusCode,
+	error?: unknown,
+) => {
+	console.error(
+		JSON.stringify({
+			event: "error",
+			message: JSON.stringify(error),
+			statusCode,
+			error: error,
+			timestamp: new Date().toISOString(),
+		}),
+	);
+
+	return c.json(errorBody, statusCode);
 };
