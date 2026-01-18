@@ -1,7 +1,3 @@
-import { drizzle } from "drizzle-orm/d1";
+import { drizzle, DrizzleD1Database } from 'drizzle-orm/d1';
 
-export interface Env {
-    PLANT_TRACKER_DB: D1Database;
-}
-
-export const db = (env: Env) => drizzle(env.PLANT_TRACKER_DB);
+export const db = (d1: D1Database): DrizzleD1Database<Record<string, unknown>> => drizzle(d1);

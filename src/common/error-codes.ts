@@ -8,6 +8,10 @@ export const ErrorCodes = {
     code: 'error.plant.not_found',
     message: 'The requested plant was not found.',
   },
+  PLANT_COULDNT_BE_CREATED: {
+    code: 'error.plant.couldnt_be_created',
+    message: 'The plant could not be created.',
+  },
   INTERNAL_SERVER_ERROR: {
     code: 'error.internal_server_error',
     message: 'An internal server error occurred.',

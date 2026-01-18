@@ -2,7 +2,15 @@ import { Context } from 'hono';
 import { ErrorCode } from './error-codes';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
 
-// Centralized error handler utility
-export const handleError = (c: Context, errorCode: ErrorCode, statusCode: ContentfulStatusCode) => {
+export const handleError = (c: Context, errorCode: ErrorCode, statusCode: ContentfulStatusCode, error?: unknown) => {
+  console.error(JSON.stringify({
+    event: 'error',
+    message: errorCode.message,
+    errorCode,
+    statusCode,
+    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    timestamp: new Date().toISOString(),
+  }));
+
   return c.json(errorCode, statusCode);
 };
